@@ -20,3 +20,4 @@ scratch/
 tmp/
 *.log
 
+.cache/

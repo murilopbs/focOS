@@ -1,0 +1,94 @@
+menu "focOS Configuration"
+
+    menu "E-Paper Display Pinout (WeAct Studio 3.7\" UC8253C)"
+        config FOCOS_EPD_MOSI_GPIO
+            int "SPI MOSI (SDI) GPIO"
+            default 23 if IDF_TARGET_ESP32
+            default 11 if IDF_TARGET_ESP32S3
+            range 0 48
+            help
+                GPIO pin connected to the display SDI/MOSI pin.
+
+        config FOCOS_EPD_SCLK_GPIO
+            int "SPI SCLK (SCK) GPIO"
+            default 18 if IDF_TARGET_ESP32
+            default 12 if IDF_TARGET_ESP32S3
+            range 0 48
+            help
+                GPIO pin connected to the display SCK/Clock pin.
+
+        config FOCOS_EPD_CS_GPIO
+            int "SPI Chip Select (CS) GPIO"
+            default 5 if IDF_TARGET_ESP32
+            default 10 if IDF_TARGET_ESP32S3
+            range 0 48
+            help
+                GPIO pin connected to the display CS pin.
+
+        config FOCOS_EPD_DC_GPIO
+            int "Data / Command (DC) GPIO"
+            default 19 if IDF_TARGET_ESP32
+            default 13 if IDF_TARGET_ESP32S3
+            range 0 48
+            help
+                GPIO pin connected to the display DC pin (avoids GPIO 17 for PSRAM safety).
+
+        config FOCOS_EPD_RES_GPIO
+            int "Reset (RES) GPIO"
+            default 21 if IDF_TARGET_ESP32
+            default 14 if IDF_TARGET_ESP32S3
+            range 0 48
+            help
+                GPIO pin connected to the display Reset pin (avoids GPIO 16 for PSRAM safety).
+
+        config FOCOS_EPD_BUSY_GPIO
+            int "Busy Status (BUSY) GPIO"
+            default 4 if IDF_TARGET_ESP32
+            default 9 if IDF_TARGET_ESP32S3
+            range 0 48
+            help
+                GPIO pin connected to the display BUSY pin.
+    endmenu
+
+    menu "Rotary Encoder Pinout (Knob)"
+        config FOCOS_ENC_CLK_GPIO
+            int "Encoder Phase A (CLK) GPIO"
+            default 32 if IDF_TARGET_ESP32
+            default 4 if IDF_TARGET_ESP32S3
+            range 0 48
+            help
+                GPIO connected to Encoder CLK (Channel A).
+
+        config FOCOS_ENC_DT_GPIO
+            int "Encoder Phase B (DT) GPIO"
+            default 33 if IDF_TARGET_ESP32
+            default 5 if IDF_TARGET_ESP32S3
+            range 0 48
+            help
+                GPIO connected to Encoder DT (Channel B).
+
+        config FOCOS_ENC_SW_GPIO
+            int "Encoder Switch / Button (SW) GPIO"
+            default 25 if IDF_TARGET_ESP32
+            default 6 if IDF_TARGET_ESP32S3
+            range 0 48
+            help
+                GPIO connected to Encoder push button.
+    endmenu
+
+    menu "System Identity & Telemetry"
+        config FOCOS_DEVICE_NAME
+            string "Default Bluetooth & Network Device Name"
+            default "focOS-Desk"
+            help
+                Name advertised by focOS during BLE onboarding and mDNS.
+
+        config FOCOS_TIMEZONE_POSIX
+            string "Default POSIX Timezone String"
+            default "<-03>3"
+            help
+                Default POSIX timezone (<-03>3 is America/Sao_Paulo / Brasilia without DST).
+    endmenu
+
+endmenu
+
