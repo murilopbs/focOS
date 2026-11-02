@@ -10,8 +10,98 @@
 #include "freertos/task.h"
 #include "epd_uc8253c.h"
 #include "ui_lvgl.h"
+#include "input_encoder.h"
 
 static const char *TAG = "focOS_kernel";
+
+#define NUM_TASKS 3
+
+typedef struct {
+    char title[64];
+    bool completed;
+} sample_task_t;
+
+static sample_task_t s_tasks[NUM_TASKS] = {
+    {"Conectar display WeAct 3.7 SPI", true},
+    {"Girar knob para testar PCNT", false},
+    {"Dar 1 clique curto para concluir", false}
+};
+
+static int s_selected_idx = 1; // Cursor starts on item 1
+static lv_obj_t *s_task_boxes[NUM_TASKS];
+static lv_obj_t *s_task_labels[NUM_TASKS];
+static lv_obj_t *s_lbl_progress = NULL;
+static lv_obj_t *s_bar_progress = NULL;
+
+static void update_task_ui_selection(void)
+{
+    if (!ui_lock(500)) return;
+
+    int completed_count = 0;
+    for (int i = 0; i < NUM_TASKS; i++) {
+        if (s_tasks[i].completed) completed_count++;
+
+        // Update border thickness based on cursor
+        lv_obj_set_style_border_width(s_task_boxes[i], (i == s_selected_idx) ? 2 : 1, 0);
+
+        // Update checkbox text
+        char buf[80];
+        snprintf(buf, sizeof(buf), "[%c] %s", s_tasks[i].completed ? 'X' : ' ', s_tasks[i].title);
+        lv_label_set_text(s_task_labels[i], buf);
+    }
+
+    // Update progress bar & label
+    int percent = (completed_count * 100) / NUM_TASKS;
+    char prog_str[32];
+    snprintf(prog_str, sizeof(prog_str), "%d/%d concluidas (%d%%)", completed_count, NUM_TASKS, percent);
+    if (s_lbl_progress) lv_label_set_text(s_lbl_progress, prog_str);
+    if (s_bar_progress) lv_bar_set_value(s_bar_progress, percent, LV_ANIM_OFF);
+
+    ui_unlock();
+
+    // Trigger fast partial refresh of the E-Paper (~0.3s)
+    ui_request_refresh(EPD_REFRESH_FAST_PARTIAL);
+}
+
+static void on_input_event(void *arg, esp_event_base_t base, int32_t id, void *data)
+{
+    switch (id) {
+        case FOCOS_INPUT_ENC_NEXT:
+            ESP_LOGI(TAG, "Input: Knob NEXT (Clockwise)");
+            if (s_selected_idx < NUM_TASKS - 1) {
+                s_selected_idx++;
+                update_task_ui_selection();
+            }
+            break;
+
+        case FOCOS_INPUT_ENC_PREV:
+            ESP_LOGI(TAG, "Input: Knob PREV (Counter-Clockwise)");
+            if (s_selected_idx > 0) {
+                s_selected_idx--;
+                update_task_ui_selection();
+            }
+            break;
+
+        case FOCOS_INPUT_CLICK_SINGLE:
+            ESP_LOGI(TAG, "Input: Button SINGLE CLICK -> Toggle task [%d]", s_selected_idx);
+            s_tasks[s_selected_idx].completed = !s_tasks[s_selected_idx].completed;
+            update_task_ui_selection();
+            break;
+
+        case FOCOS_INPUT_CLICK_DOUBLE:
+            ESP_LOGI(TAG, "Input: Button DOUBLE CLICK -> Alternar visualizacao");
+            // Reserved for screen mode switching in US-106
+            break;
+
+        case FOCOS_INPUT_CLICK_LONG:
+            ESP_LOGI(TAG, "Input: Button LONG CLICK -> Ativar Modo Hiperfoco");
+            // Reserved for Hiperfoco trigger in US-106
+            break;
+
+        default:
+            break;
+    }
+}
 
 static void print_banner(void)
 {
@@ -24,24 +114,6 @@ static void print_banner(void)
     printf("|_| \\___/ \\___|\\____/|_____/ \n");
     printf(">> Ambient E-Paper Desk OS v1.0\n");
     printf(">> Target Hardware: %s\n\n", CONFIG_IDF_TARGET);
-}
-
-static void print_system_info(void)
-{
-    esp_chip_info_t chip_info;
-    uint32_t flash_size;
-    esp_chip_info(&chip_info);
-
-    if (esp_flash_get_size(NULL, &flash_size) != ESP_OK) {
-        flash_size = 0;
-    }
-
-    ESP_LOGI(TAG, "CPU Cores: %d | Silicon Revision: %d", chip_info.cores, chip_info.revision);
-    ESP_LOGI(TAG, "Flash Size: %" PRIu32 " MB | Features: %s%s",
-             flash_size / (1024 * 1024),
-             (chip_info.features & CHIP_FEATURE_WIFI_BGN) ? "802.11bgn " : "",
-             (chip_info.features & CHIP_FEATURE_BLE) ? "BLE " : "");
-    ESP_LOGI(TAG, "Free Internal Heap: %" PRIu32 " KB", (uint32_t)(esp_get_free_internal_heap_size() / 1024));
 }
 
 static void create_initial_ui(void)
@@ -69,7 +141,7 @@ static void create_initial_ui(void)
     lv_obj_align(lbl_date, LV_ALIGN_LEFT_MID, 4, 0);
 
     lv_obj_t *lbl_brand = lv_label_create(header);
-    lv_label_set_text(lbl_brand, "focOS 1.0  [Wi-Fi]");
+    lv_label_set_text(lbl_brand, "focOS 1.0  [Knob OK]");
     lv_obj_set_style_text_font(lbl_brand, &lv_font_montserrat_14, 0);
     lv_obj_align(lbl_brand, LV_ALIGN_RIGHT_MID, -4, 0);
 
@@ -79,46 +151,42 @@ static void create_initial_ui(void)
     lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_18, 0);
     lv_obj_set_pos(lbl_title, 14, 38);
 
-    lv_obj_t *lbl_progress = lv_label_create(scr);
-    lv_label_set_text(lbl_progress, "1/3 concluídas (33%)");
-    lv_obj_set_style_text_font(lbl_progress, &lv_font_montserrat_14, 0);
-    lv_obj_align(lbl_progress, LV_ALIGN_TOP_RIGHT, -14, 40);
+    s_lbl_progress = lv_label_create(scr);
+    lv_label_set_text(s_lbl_progress, "1/3 concluidas (33%)");
+    lv_obj_set_style_text_font(s_lbl_progress, &lv_font_montserrat_14, 0);
+    lv_obj_align(s_lbl_progress, LV_ALIGN_TOP_RIGHT, -14, 40);
 
     // Progress Bar
-    lv_obj_t *bar = lv_bar_create(scr);
-    lv_obj_set_size(bar, 388, 6);
-    lv_obj_set_pos(bar, 14, 62);
-    lv_bar_set_range(bar, 0, 100);
-    lv_bar_set_value(bar, 33, LV_ANIM_OFF);
-    lv_obj_set_style_anim_time(bar, 0, 0);
-    lv_obj_set_style_bg_color(bar, lv_color_white(), LV_PART_MAIN);
-    lv_obj_set_style_border_width(bar, 1, LV_PART_MAIN);
-    lv_obj_set_style_border_color(bar, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(bar, lv_color_black(), LV_PART_INDICATOR);
+    s_bar_progress = lv_bar_create(scr);
+    lv_obj_set_size(s_bar_progress, 388, 6);
+    lv_obj_set_pos(s_bar_progress, 14, 62);
+    lv_bar_set_range(s_bar_progress, 0, 100);
+    lv_bar_set_value(s_bar_progress, 33, LV_ANIM_OFF);
+    lv_obj_set_style_anim_time(s_bar_progress, 0, 0);
+    lv_obj_set_style_bg_color(s_bar_progress, lv_color_white(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(s_bar_progress, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_color(s_bar_progress, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_bar_progress, lv_color_black(), LV_PART_INDICATOR);
 
-    // 3. Task Items List (Demonstration of 1-bit typography & layout)
-    const char *tasks[] = {
-        "[X] Inicializar WeAct 3.7 E-Paper SPI DMA",
-        "[ ] Integrar LVGL 8.4 Monocromatico",
-        "[ ] Testar Rotary Encoder (PCNT)"
-    };
-
+    // 3. Task Items List
     int start_y = 78;
-    for (int i = 0; i < 3; i++) {
-        lv_obj_t *t_box = lv_obj_create(scr);
-        lv_obj_set_size(t_box, 388, 38);
-        lv_obj_set_pos(t_box, 14, start_y + (i * 44));
-        lv_obj_set_style_radius(t_box, 4, 0);
-        lv_obj_set_style_border_width(t_box, (i == 1) ? 2 : 1, 0); // Active cursor highlight on item 1
-        lv_obj_set_style_border_color(t_box, lv_color_black(), 0);
-        lv_obj_set_style_bg_color(t_box, lv_color_white(), 0);
-        lv_obj_set_style_pad_all(t_box, 8, 0);
-        lv_obj_clear_flag(t_box, LV_OBJ_FLAG_SCROLLABLE);
+    for (int i = 0; i < NUM_TASKS; i++) {
+        s_task_boxes[i] = lv_obj_create(scr);
+        lv_obj_set_size(s_task_boxes[i], 388, 38);
+        lv_obj_set_pos(s_task_boxes[i], 14, start_y + (i * 44));
+        lv_obj_set_style_radius(s_task_boxes[i], 4, 0);
+        lv_obj_set_style_border_width(s_task_boxes[i], (i == s_selected_idx) ? 2 : 1, 0);
+        lv_obj_set_style_border_color(s_task_boxes[i], lv_color_black(), 0);
+        lv_obj_set_style_bg_color(s_task_boxes[i], lv_color_white(), 0);
+        lv_obj_set_style_pad_all(s_task_boxes[i], 8, 0);
+        lv_obj_clear_flag(s_task_boxes[i], LV_OBJ_FLAG_SCROLLABLE);
 
-        lv_obj_t *lbl_task = lv_label_create(t_box);
-        lv_label_set_text(lbl_task, tasks[i]);
-        lv_obj_set_style_text_font(lbl_task, &lv_font_montserrat_14, 0);
-        lv_obj_align(lbl_task, LV_ALIGN_LEFT_MID, 4, 0);
+        s_task_labels[i] = lv_label_create(s_task_boxes[i]);
+        char buf[80];
+        snprintf(buf, sizeof(buf), "[%c] %s", s_tasks[i].completed ? 'X' : ' ', s_tasks[i].title);
+        lv_label_set_text(s_task_labels[i], buf);
+        lv_obj_set_style_text_font(s_task_labels[i], &lv_font_montserrat_14, 0);
+        lv_obj_align(s_task_labels[i], LV_ALIGN_LEFT_MID, 4, 0);
     }
 
     // 4. Footer info
@@ -148,13 +216,19 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
     ESP_LOGI(TAG, "NVS initialized successfully.");
 
-    // 2. Initialize the Default System Event Loop
+    // 2. Initialize Default Event Loop
     ESP_LOGI(TAG, "Creating default system event loop...");
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_LOGI(TAG, "System event bus ready.");
 
-    // 3. Print Hardware & Config Telemetry
-    print_system_info();
+    // 3. Register Input Event Handler
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(
+        FOCOS_INPUT_EVENT,
+        ESP_EVENT_ANY_ID,
+        on_input_event,
+        NULL,
+        NULL
+    ));
 
     // 4. Initialize Hardware Driver: WeAct 3.7" E-Paper (UC8253C)
     epd_config_t epd_cfg = {
@@ -170,10 +244,18 @@ void app_main(void)
     // 5. Initialize Graphics Layer: LVGL 8.4 (1-bit Monochrome)
     ESP_ERROR_CHECK(ui_lvgl_init());
 
-    // 6. Render Initial Screen
+    // 6. Initialize Rotary Encoder (Hardware PCNT + Button FSM)
+    input_encoder_config_t enc_cfg = {
+        .pin_clk = CONFIG_FOCOS_ENC_CLK_GPIO,
+        .pin_dt  = CONFIG_FOCOS_ENC_DT_GPIO,
+        .pin_sw  = CONFIG_FOCOS_ENC_SW_GPIO,
+    };
+    ESP_ERROR_CHECK(input_encoder_init(&enc_cfg));
+
+    // 7. Render Initial Screen
     create_initial_ui();
 
-    ESP_LOGI(TAG, "focOS Kernel & UI subsystems running.");
+    ESP_LOGI(TAG, "focOS Kernel, UI & Input subsystems running.");
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));
