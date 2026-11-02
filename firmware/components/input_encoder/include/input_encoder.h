@@ -18,6 +18,7 @@ typedef enum {
     FOCOS_INPUT_CLICK_SINGLE,   // Single short press (< 400ms)
     FOCOS_INPUT_CLICK_DOUBLE,   // Double click (2 presses in < 350ms)
     FOCOS_INPUT_CLICK_LONG,     // Long press (held >= 1200ms)
+    FOCOS_INPUT_REFRESH_FULL,   // Manual full refresh request (e.g. key 'R')
 } focos_input_event_t;
 
 typedef struct {

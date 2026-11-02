@@ -2,6 +2,7 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_rom_sys.h"
 #include "esp_heap_caps.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
@@ -63,6 +64,9 @@ bool epd_is_busy(void)
 
 static esp_err_t wait_until_idle(uint32_t timeout_ms)
 {
+    // Ensure UC8253 controller has asserted the BUSY line LOW before polling
+    esp_rom_delay_us(1000);
+
     uint32_t elapsed = 0;
     while (epd_is_busy()) {
         vTaskDelay(pdMS_TO_TICKS(10));
@@ -151,7 +155,7 @@ static void init_display_registers(void)
     write_byte(0x0D);
 }
 
-static void set_partial_ram_area(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
+__attribute__((unused)) static void set_partial_ram_area(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
     uint16_t xe = (x + w - 1) | 0x0007;
     uint16_t ye = y + h - 1;
@@ -317,20 +321,14 @@ esp_err_t epd_update(epd_refresh_mode_t mode)
         hardware_reset();
         init_display_registers();
 
-        // 1. Set full partial window
-        write_cmd(CMD_PARTIAL_IN);
-        set_partial_ram_area(0, 0, EPD_PHYSICAL_WIDTH, EPD_PHYSICAL_HEIGHT);
-
-        // 2. Write DTM1 (Old) and DTM2 (New)
+        // 1. Write previous and current buffers (both with curr buffer to synchronize)
         write_cmd(CMD_DATA_START_TRANS_1);
         write_dma_buffer(s_buffer_curr, EPD_BUFFER_SIZE);
 
         write_cmd(CMD_DATA_START_TRANS_2);
         write_dma_buffer(s_buffer_curr, EPD_BUFFER_SIZE);
 
-        write_cmd(CMD_PARTIAL_OUT);
-
-        // 3. Fast Full Update waveform sequence (from GoodDisplay/GxEPD2)
+        // 2. Full update waveform configuration (GoodDisplay standard)
         write_cmd(CMD_CASCADE_SETTING);
         write_byte(0x02); // TSFIX
 
@@ -350,34 +348,34 @@ esp_err_t epd_update(epd_refresh_mode_t mode)
 
         s_partial_count = 0;
     } else {
-        // Fast Partial Refresh
-        write_cmd(CMD_PARTIAL_IN);
-        set_partial_ram_area(0, 0, EPD_PHYSICAL_WIDTH, EPD_PHYSICAL_HEIGHT);
+        // Fast Partial Refresh (GoodDisplay / GxEPD2 proven sequence)
+        // 1. Power on analog charge pump first
+        power_on();
 
+        // 2. Configure partial waveform registers
+        write_cmd(CMD_CASCADE_SETTING);
+        write_byte(0x02); // TSFIX
+
+        write_cmd(CMD_FORCE_TEMPERATURE);
+        write_byte(0x6E); // Fast partial update waveform (~0.3s)
+
+        write_cmd(CMD_VCOM_DATA_INTERVAL);
+        write_byte(0xD7); // Border floating / keep during partial refresh
+
+        // 3. Write previous buffer to DTM1 (0x10) and current buffer to DTM2 (0x13)
         write_cmd(CMD_DATA_START_TRANS_1);
         write_dma_buffer(s_buffer_prev, EPD_BUFFER_SIZE);
 
         write_cmd(CMD_DATA_START_TRANS_2);
         write_dma_buffer(s_buffer_curr, EPD_BUFFER_SIZE);
 
-        write_cmd(CMD_PARTIAL_OUT);
-
-        write_cmd(CMD_CASCADE_SETTING);
-        write_byte(0x02); // TSFIX
-
-        write_cmd(CMD_FORCE_TEMPERATURE);
-        write_byte(0x6E); // Fast partial update waveform
-
-        write_cmd(CMD_VCOM_DATA_INTERVAL);
-        write_byte(0x97);
-
-        power_on();
-
+        // 4. Trigger master activation refresh
         write_cmd(CMD_DISPLAY_REFRESH);
-        wait_until_idle(2000);
+        wait_until_idle(2500);
 
+        // 5. Power off and reset panel settings
         power_off();
-        init_display_registers();
+        init_display_registers(); // Undo TSFIX
 
         s_partial_count++;
     }

@@ -17,8 +17,8 @@ extern "C" {
 #define EPD_HEIGHT           240
 #define EPD_BUFFER_SIZE      ((EPD_PHYSICAL_WIDTH * EPD_PHYSICAL_HEIGHT) / 8) // 12,480 bytes
 
-// Automatic Full Refresh threshold to prevent ghosting
-#define EPD_FULL_REFRESH_INTERVAL 10
+// Automatic Full Refresh threshold to prevent ghosting (every 6 partial updates)
+#define EPD_FULL_REFRESH_INTERVAL 6
 
 typedef enum {
     EPD_COLOR_BLACK = 0,

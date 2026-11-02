@@ -48,6 +48,7 @@ static void serial_input_task(void *pvParameters)
     ESP_LOGI(TAG, " [W] ou [K] (ou Seta p/ Cima)  : Subir cursor (Anterior)");
     ESP_LOGI(TAG, " [S] ou [J] (ou Seta p/ Baixo) : Descer cursor (Proximo)");
     ESP_LOGI(TAG, " [Espaco] / [Enter] / [C]      : Marcar/Desmarcar tarefa");
+    ESP_LOGI(TAG, " [R]                           : Limpeza Completa (Full Refresh)");
     ESP_LOGI(TAG, " [D]                           : Duplo clique");
     ESP_LOGI(TAG, " [H]                           : Ativar Modo Hiperfoco");
     ESP_LOGI(TAG, " Dica: O botao BOOT da placa (GPIO 0) tambem funciona!");
@@ -96,6 +97,9 @@ static void serial_input_task(void *pvParameters)
             } else if (ch == ' ' || ch == '\r' || ch == '\n' || ch == 'c' || ch == 'C') {
                 ESP_LOGI(TAG, "Serial: [CLICK] -> Concluir/Alternar Tarefa");
                 esp_event_post(FOCOS_INPUT_EVENT, FOCOS_INPUT_CLICK_SINGLE, NULL, 0, pdMS_TO_TICKS(10));
+            } else if (ch == 'r' || ch == 'R') {
+                ESP_LOGI(TAG, "Serial: 'R' -> Full Refresh (Limpeza Completa da Tela)");
+                esp_event_post(FOCOS_INPUT_EVENT, FOCOS_INPUT_REFRESH_FULL, NULL, 0, pdMS_TO_TICKS(10));
             } else if (ch == 'd' || ch == 'D') {
                 ESP_LOGI(TAG, "Serial: [DOUBLE CLICK] -> Alternar Modo");
                 esp_event_post(FOCOS_INPUT_EVENT, FOCOS_INPUT_CLICK_DOUBLE, NULL, 0, pdMS_TO_TICKS(10));

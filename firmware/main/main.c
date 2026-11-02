@@ -41,12 +41,24 @@ static void update_task_ui_selection(void)
     for (int i = 0; i < NUM_TASKS; i++) {
         if (s_tasks[i].completed) completed_count++;
 
-        // Update border thickness based on cursor
-        lv_obj_set_style_border_width(s_task_boxes[i], (i == s_selected_idx) ? 2 : 1, 0);
+        bool is_sel = (i == s_selected_idx);
 
-        // Update checkbox text
+        // High-Contrast Focus Styling: Selected item is an inverted black card
+        if (is_sel) {
+            lv_obj_set_style_bg_color(s_task_boxes[i], lv_color_black(), 0);
+            lv_obj_set_style_border_color(s_task_boxes[i], lv_color_black(), 0);
+            lv_obj_set_style_border_width(s_task_boxes[i], 2, 0);
+            lv_obj_set_style_text_color(s_task_labels[i], lv_color_white(), 0);
+        } else {
+            lv_obj_set_style_bg_color(s_task_boxes[i], lv_color_white(), 0);
+            lv_obj_set_style_border_color(s_task_boxes[i], lv_color_black(), 0);
+            lv_obj_set_style_border_width(s_task_boxes[i], 1, 0);
+            lv_obj_set_style_text_color(s_task_labels[i], lv_color_black(), 0);
+        }
+
+        // Update checkbox text with explicit indicator arrow
         char buf[80];
-        snprintf(buf, sizeof(buf), "[%c] %s", s_tasks[i].completed ? 'X' : ' ', s_tasks[i].title);
+        snprintf(buf, sizeof(buf), "%s [%c] %s", is_sel ? ">" : " ", s_tasks[i].completed ? 'X' : ' ', s_tasks[i].title);
         lv_label_set_text(s_task_labels[i], buf);
     }
 
@@ -67,7 +79,7 @@ static void on_input_event(void *arg, esp_event_base_t base, int32_t id, void *d
 {
     switch (id) {
         case FOCOS_INPUT_ENC_NEXT:
-            ESP_LOGI(TAG, "Input: Knob NEXT (Clockwise)");
+            ESP_LOGI(TAG, "Input: Knob NEXT (Down)");
             if (s_selected_idx < NUM_TASKS - 1) {
                 s_selected_idx++;
                 update_task_ui_selection();
@@ -75,7 +87,7 @@ static void on_input_event(void *arg, esp_event_base_t base, int32_t id, void *d
             break;
 
         case FOCOS_INPUT_ENC_PREV:
-            ESP_LOGI(TAG, "Input: Knob PREV (Counter-Clockwise)");
+            ESP_LOGI(TAG, "Input: Knob PREV (Up)");
             if (s_selected_idx > 0) {
                 s_selected_idx--;
                 update_task_ui_selection();
@@ -86,6 +98,11 @@ static void on_input_event(void *arg, esp_event_base_t base, int32_t id, void *d
             ESP_LOGI(TAG, "Input: Button SINGLE CLICK -> Toggle task [%d]", s_selected_idx);
             s_tasks[s_selected_idx].completed = !s_tasks[s_selected_idx].completed;
             update_task_ui_selection();
+            break;
+
+        case FOCOS_INPUT_REFRESH_FULL:
+            ESP_LOGI(TAG, "Input: Manual Full Refresh (Limpando tela...)");
+            ui_request_refresh(EPD_REFRESH_FULL);
             break;
 
         case FOCOS_INPUT_CLICK_DOUBLE:
@@ -171,27 +188,39 @@ static void create_initial_ui(void)
     // 3. Task Items List
     int start_y = 78;
     for (int i = 0; i < NUM_TASKS; i++) {
+        bool is_sel = (i == s_selected_idx);
+
         s_task_boxes[i] = lv_obj_create(scr);
         lv_obj_set_size(s_task_boxes[i], 388, 38);
         lv_obj_set_pos(s_task_boxes[i], 14, start_y + (i * 44));
         lv_obj_set_style_radius(s_task_boxes[i], 4, 0);
-        lv_obj_set_style_border_width(s_task_boxes[i], (i == s_selected_idx) ? 2 : 1, 0);
-        lv_obj_set_style_border_color(s_task_boxes[i], lv_color_black(), 0);
-        lv_obj_set_style_bg_color(s_task_boxes[i], lv_color_white(), 0);
         lv_obj_set_style_pad_all(s_task_boxes[i], 8, 0);
         lv_obj_clear_flag(s_task_boxes[i], LV_OBJ_FLAG_SCROLLABLE);
 
         s_task_labels[i] = lv_label_create(s_task_boxes[i]);
-        char buf[80];
-        snprintf(buf, sizeof(buf), "[%c] %s", s_tasks[i].completed ? 'X' : ' ', s_tasks[i].title);
-        lv_label_set_text(s_task_labels[i], buf);
         lv_obj_set_style_text_font(s_task_labels[i], &lv_font_montserrat_14, 0);
         lv_obj_align(s_task_labels[i], LV_ALIGN_LEFT_MID, 4, 0);
+
+        if (is_sel) {
+            lv_obj_set_style_bg_color(s_task_boxes[i], lv_color_black(), 0);
+            lv_obj_set_style_border_color(s_task_boxes[i], lv_color_black(), 0);
+            lv_obj_set_style_border_width(s_task_boxes[i], 2, 0);
+            lv_obj_set_style_text_color(s_task_labels[i], lv_color_white(), 0);
+        } else {
+            lv_obj_set_style_bg_color(s_task_boxes[i], lv_color_white(), 0);
+            lv_obj_set_style_border_color(s_task_boxes[i], lv_color_black(), 0);
+            lv_obj_set_style_border_width(s_task_boxes[i], 1, 0);
+            lv_obj_set_style_text_color(s_task_labels[i], lv_color_black(), 0);
+        }
+
+        char buf[80];
+        snprintf(buf, sizeof(buf), "%s [%c] %s", is_sel ? ">" : " ", s_tasks[i].completed ? 'X' : ' ', s_tasks[i].title);
+        lv_label_set_text(s_task_labels[i], buf);
     }
 
     // 4. Footer info
     lv_obj_t *lbl_footer = lv_label_create(scr);
-    lv_label_set_text(lbl_footer, "Gire o knob para navegar | Clique para concluir");
+    lv_label_set_text(lbl_footer, "Navegar: W/S | Concluir: Espaco | Limpar Tela: R");
     lv_obj_set_style_text_font(lbl_footer, &lv_font_montserrat_14, 0);
     lv_obj_align(lbl_footer, LV_ALIGN_BOTTOM_MID, 0, -4);
 
