@@ -1,0 +1,22 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# ESP-IDF / CMake
+build/
+sdkconfig
+sdkconfig.old
+dependencies.lock
+managed_components/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.bak
+
+# Temporary / Scratch
+scratch/
+tmp/
+*.log
+
