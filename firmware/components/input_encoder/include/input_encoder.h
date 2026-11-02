@@ -39,3 +39,4 @@ int32_t input_encoder_get_position(void);
 #ifdef __cplusplus
 }
 #endif
+
