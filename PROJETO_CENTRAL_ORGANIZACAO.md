@@ -174,23 +174,23 @@ Para que o projeto seja robusto e **100% Open Source**, precisamos estabelecer e
 * **Definição:** Depois que o dispositivo estiver fechado em uma case 3D bonita na sua mesa, você não vai querer desmontar tudo para atualizar o cabo USB.
 * **Solução:** Esquema de partição **`Dual OTA` (`ota_0` e `ota_1`)** na Flash de 4MB do ESP32. Usando `esp_https_ota`, o dispositivo baixa novas versões diretamente das *Releases* do seu repositório no GitHub!
 
-### 3.6. Padrão de Hardware Seguro (Pinout Revisado para ESP32 e ESP32-S3)
+### 3.6. Padrão de Hardware Seguro (Pinout Oficial para ESP32 e ESP32-S3)
 
-Evitando os pinos `16` e `17` (conflito com PSRAM) e usando pinos universais:
+Pinagem exata com a serigrafia da sua placa (**VCC, GND, SDA, SCL, CS, D/C, RES, BUSY**):
 
-| Pino WeAct 3.7" / Encoder | Função | ESP32 (30 Pinos) | ESP32-S3 | Motivo da Escolha |
+| Pino no Display | Função | ESP32 (30 Pinos) | ESP32-S3 | Motivo da Escolha / Segurança |
 | :--- | :--- | :--- | :--- | :--- |
-| **VCC** | Alimentação 3.3V | `3V3` | `3V3` | Tensão lógica nativa |
+| **VCC** | Alimentação 3.3V | `3V3` | `3V3` | **Atenção:** Usar 3.3V, nunca 5V/VIN! |
 | **GND** | Terra | `GND` | `GND` | Referência comum |
-| **SDI (MOSI)** | SPI MOSI | `GPIO 23` | `GPIO 11` | Pino nativo SPI sem conflito |
-| **SCK (CLK)** | SPI SCLK | `GPIO 18` | `GPIO 12` | Pino nativo SPI sem conflito |
-| **CS** | SPI Chip Select | `GPIO 5` | `GPIO 10` | Seleção de escravo SPI |
-| **DC** | Data / Command | `GPIO 19` | `GPIO 13` | Substitui GPIO 17 (livre de PSRAM) |
-| **RES** | Reset Display | `GPIO 21` | `GPIO 14` | Substitui GPIO 16 (livre de PSRAM) |
-| **BUSY** | Status do Display | `GPIO 4` | `GPIO 9` | Entrada com interrupt opcional |
-| **ENC CLK (A)** | Fase A do Knob | `GPIO 32` | `GPIO 4` | Suporte ao periférico `PCNT` |
-| **ENC DT (B)** | Fase B do Knob | `GPIO 33` | `GPIO 5` | Suporte ao periférico `PCNT` |
-| **ENC SW** | Botão Clique | `GPIO 25` | `GPIO 6` | Suporte a Wakeup de Sleep |
+| **SDA** | Dados SPI (MOSI/SDI) | `GPIO 23` | `GPIO 11` | SPI nativo de alta velocidade |
+| **SCL** | Clock SPI (SCLK/CLK) | `GPIO 18` | `GPIO 12` | SPI nativo de alta velocidade |
+| **CS** | Chip Select | `GPIO 5` | `GPIO 10` | Habilita comunicação com o display |
+| **D/C** | Data / Command | `GPIO 19` | `GPIO 13` | Alterna entre dados e comandos (Livre de PSRAM) |
+| **RES** | Reset do Display | `GPIO 21` | `GPIO 14` | Reinicialização em hardware (Livre de PSRAM) |
+| **BUSY** | Status de Ocupado | `GPIO 4` | `GPIO 9` | Ativo em nível LOW (0 = Ocupado, 1 = Pronto) |
+| **ENC CLK (A)** | Fase A do Knob | `GPIO 32` | `GPIO 4` | Contagem por hardware no periférico `PCNT` |
+| **ENC DT (B)** | Fase B do Knob | `GPIO 33` | `GPIO 5` | Contagem por hardware no periférico `PCNT` |
+| **ENC SW** | Botão Clique | `GPIO 25` | `GPIO 6` | Suporte a wakeup de economia de energia |
 
 ---
 

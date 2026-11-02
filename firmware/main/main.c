@@ -158,8 +158,8 @@ void app_main(void)
 
     // 4. Initialize Hardware Driver: WeAct 3.7" E-Paper (UC8253C)
     epd_config_t epd_cfg = {
-        .pin_mosi = CONFIG_FOCOS_EPD_MOSI_GPIO,
-        .pin_sclk = CONFIG_FOCOS_EPD_SCLK_GPIO,
+        .pin_sda  = CONFIG_FOCOS_EPD_SDA_GPIO,
+        .pin_scl  = CONFIG_FOCOS_EPD_SCL_GPIO,
         .pin_cs   = CONFIG_FOCOS_EPD_CS_GPIO,
         .pin_dc   = CONFIG_FOCOS_EPD_DC_GPIO,
         .pin_res  = CONFIG_FOCOS_EPD_RES_GPIO,

@@ -1,24 +1,24 @@
 menu "focOS Configuration"
 
     menu "E-Paper Display Pinout (WeAct Studio 3.7\" UC8253C)"
-        config FOCOS_EPD_MOSI_GPIO
-            int "SPI MOSI (SDI) GPIO"
+        config FOCOS_EPD_SDA_GPIO
+            int "SDA (Serial Data / MOSI) GPIO"
             default 23 if IDF_TARGET_ESP32
             default 11 if IDF_TARGET_ESP32S3
             range 0 48
             help
-                GPIO pin connected to the display SDI/MOSI pin.
+                GPIO pin connected to the display SDA (MOSI) pin.
 
-        config FOCOS_EPD_SCLK_GPIO
-            int "SPI SCLK (SCK) GPIO"
+        config FOCOS_EPD_SCL_GPIO
+            int "SCL (Serial Clock / SCK) GPIO"
             default 18 if IDF_TARGET_ESP32
             default 12 if IDF_TARGET_ESP32S3
             range 0 48
             help
-                GPIO pin connected to the display SCK/Clock pin.
+                GPIO pin connected to the display SCL (Clock) pin.
 
         config FOCOS_EPD_CS_GPIO
-            int "SPI Chip Select (CS) GPIO"
+            int "CS (Chip Select) GPIO"
             default 5 if IDF_TARGET_ESP32
             default 10 if IDF_TARGET_ESP32S3
             range 0 48
@@ -26,23 +26,23 @@ menu "focOS Configuration"
                 GPIO pin connected to the display CS pin.
 
         config FOCOS_EPD_DC_GPIO
-            int "Data / Command (DC) GPIO"
+            int "D/C (Data / Command) GPIO"
             default 19 if IDF_TARGET_ESP32
             default 13 if IDF_TARGET_ESP32S3
             range 0 48
             help
-                GPIO pin connected to the display DC pin (avoids GPIO 17 for PSRAM safety).
+                GPIO pin connected to the display D/C pin (avoids GPIO 17 for PSRAM safety).
 
         config FOCOS_EPD_RES_GPIO
-            int "Reset (RES) GPIO"
+            int "RES (Reset) GPIO"
             default 21 if IDF_TARGET_ESP32
             default 14 if IDF_TARGET_ESP32S3
             range 0 48
             help
-                GPIO pin connected to the display Reset pin (avoids GPIO 16 for PSRAM safety).
+                GPIO pin connected to the display RES (Reset) pin (avoids GPIO 16 for PSRAM safety).
 
         config FOCOS_EPD_BUSY_GPIO
-            int "Busy Status (BUSY) GPIO"
+            int "BUSY Status GPIO"
             default 4 if IDF_TARGET_ESP32
             default 9 if IDF_TARGET_ESP32S3
             range 0 48

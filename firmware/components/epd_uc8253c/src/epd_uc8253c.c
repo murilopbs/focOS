@@ -155,9 +155,9 @@ esp_err_t epd_init(const epd_config_t *config)
 
     // 3. Initialize SPI Bus with DMA
     spi_bus_config_t buscfg = {
-        .mosi_io_num = s_config.pin_mosi,
+        .mosi_io_num = s_config.pin_sda,
         .miso_io_num = -1,
-        .sclk_io_num = s_config.pin_sclk,
+        .sclk_io_num = s_config.pin_scl,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
         .max_transfer_sz = 4096 * 8,

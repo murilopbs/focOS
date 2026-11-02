@@ -31,12 +31,12 @@ typedef enum {
 } epd_refresh_mode_t;
 
 typedef struct {
-    int pin_mosi;
-    int pin_sclk;
-    int pin_cs;
-    int pin_dc;
-    int pin_res;
-    int pin_busy;
+    int pin_sda;   // SDA: Serial Data (MOSI / SDI)
+    int pin_scl;   // SCL: Serial Clock (SCLK / SCK)
+    int pin_cs;    // CS: Chip Select
+    int pin_dc;    // D/C: Data / Command
+    int pin_res;   // RES: Reset
+    int pin_busy;  // BUSY: Busy Status (Active-LOW)
 } epd_config_t;
 
 /**
@@ -83,3 +83,4 @@ bool epd_is_busy(void);
 #ifdef __cplusplus
 }
 #endif
+
