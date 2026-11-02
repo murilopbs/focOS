@@ -8,6 +8,7 @@
 #include "nvs_flash.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "epd_uc8253c.h"
 
 static const char *TAG = "focOS_kernel";
 
@@ -42,24 +43,48 @@ static void print_system_info(void)
     ESP_LOGI(TAG, "Free Internal Heap: %" PRIu32 " KB", (uint32_t)(esp_get_free_internal_heap_size() / 1024));
 }
 
-static void print_pinout_config(void)
+static void init_epaper_display(void)
 {
-    ESP_LOGI(TAG, "--- focOS Hardware Pinout (Kconfig) ---");
-    ESP_LOGI(TAG, "EPD SPI: MOSI=%d, SCLK=%d, CS=%d, DC=%d, RES=%d, BUSY=%d",
-             CONFIG_FOCOS_EPD_MOSI_GPIO,
-             CONFIG_FOCOS_EPD_SCLK_GPIO,
-             CONFIG_FOCOS_EPD_CS_GPIO,
-             CONFIG_FOCOS_EPD_DC_GPIO,
-             CONFIG_FOCOS_EPD_RES_GPIO,
-             CONFIG_FOCOS_EPD_BUSY_GPIO);
-    ESP_LOGI(TAG, "Encoder: CLK=%d, DT=%d, SW=%d",
-             CONFIG_FOCOS_ENC_CLK_GPIO,
-             CONFIG_FOCOS_ENC_DT_GPIO,
-             CONFIG_FOCOS_ENC_SW_GPIO);
-    ESP_LOGI(TAG, "Device Name: %s | Timezone: %s",
-             CONFIG_FOCOS_DEVICE_NAME,
-             CONFIG_FOCOS_TIMEZONE_POSIX);
-    ESP_LOGI(TAG, "--------------------------------------");
+    epd_config_t epd_cfg = {
+        .pin_mosi = CONFIG_FOCOS_EPD_MOSI_GPIO,
+        .pin_sclk = CONFIG_FOCOS_EPD_SCLK_GPIO,
+        .pin_cs   = CONFIG_FOCOS_EPD_CS_GPIO,
+        .pin_dc   = CONFIG_FOCOS_EPD_DC_GPIO,
+        .pin_res  = CONFIG_FOCOS_EPD_RES_GPIO,
+        .pin_busy = CONFIG_FOCOS_EPD_BUSY_GPIO,
+    };
+
+    ESP_LOGI(TAG, "Configuring WeAct 3.7\" E-Paper display HAL...");
+    esp_err_t err = epd_init(&epd_cfg);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize E-Paper display: %s", esp_err_to_name(err));
+        return;
+    }
+
+    // Clear buffer to white
+    epd_clear_buffer(EPD_COLOR_WHITE);
+
+    // Draw initial test geometry (double border in landscape 416 x 240)
+    for (int x = 4; x < EPD_WIDTH - 4; x++) {
+        epd_draw_pixel(x, 4, EPD_COLOR_BLACK);
+        epd_draw_pixel(x, 6, EPD_COLOR_BLACK);
+        epd_draw_pixel(x, EPD_HEIGHT - 5, EPD_COLOR_BLACK);
+        epd_draw_pixel(x, EPD_HEIGHT - 7, EPD_COLOR_BLACK);
+    }
+    for (int y = 4; y < EPD_HEIGHT - 4; y++) {
+        epd_draw_pixel(4, y, EPD_COLOR_BLACK);
+        epd_draw_pixel(6, y, EPD_COLOR_BLACK);
+        epd_draw_pixel(EPD_WIDTH - 5, y, EPD_COLOR_BLACK);
+        epd_draw_pixel(EPD_WIDTH - 7, y, EPD_COLOR_BLACK);
+    }
+
+    // Draw center crosshair and focus card box
+    for (int x = 40; x < EPD_WIDTH - 40; x++) {
+        epd_draw_pixel(x, 45, EPD_COLOR_BLACK);
+    }
+
+    ESP_LOGI(TAG, "Drawing test frame to E-Paper...");
+    epd_update(EPD_REFRESH_FULL);
 }
 
 void app_main(void)
@@ -84,13 +109,16 @@ void app_main(void)
 
     // 3. Print Hardware & Config Telemetry
     print_system_info();
-    print_pinout_config();
 
-    ESP_LOGI(TAG, "focOS Kernel bootstrap phase complete. Ready for subsystem initialization.");
+    // 4. Initialize E-Paper Display
+    init_epaper_display();
+
+    ESP_LOGI(TAG, "focOS Kernel bootstrap phase complete. Subsystems running.");
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));
-        ESP_LOGD(TAG, "Heartbeat | Free Heap: %" PRIu32 " bytes", (uint32_t)esp_get_free_heap_size());
+        ESP_LOGD(TAG, "Heartbeat | Free Heap: %" PRIu32 " bytes | EPD Partial Count: %lu",
+                 (uint32_t)esp_get_free_heap_size(),
+                 (unsigned long)epd_get_partial_count());
     }
 }
-
